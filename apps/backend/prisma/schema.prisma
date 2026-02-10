@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  RESELLER
+  STORE_OWNER
+  CUSTOMER
+}
+
+enum StoreStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(STORE_OWNER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  stores    Store[]  @relation("OwnerStores")
+  orders    Order[]
+  servers   Server[]
+}
+
+model Store {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  domain      String?     @unique
+  status      StoreStatus @default(ACTIVE)
+  ownerId     String
+  owner       User        @relation("OwnerStores", fields: [ownerId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  products    Product[]
+  orders      Order[]
+  categories  Category[]
+  pages       Page[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String
+  description String?
+  price       Decimal
+  sku         String?
+  stock       Int      @default(0)
+  images      String[]
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  categories  Category[]
+  orderItems  OrderItem[]
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id])
+  products  Product[]
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  orderNumber String      @unique
+  status      OrderStatus @default(PENDING)
+  totalAmount Decimal
+  userId      String?
+  user        User?       @relation(fields: [userId], references: [id])
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id])
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  items       OrderItem[]
+  payments    Payment[]
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  quantity  Int
+  price     Decimal
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  amount        Decimal
+  currency      String        @default("USD")
+  status        PaymentStatus @default(PENDING)
+  provider      String        @default("Stripe")
+  transactionId String?
+  orderId       String
+  order         Order         @relation(fields: [orderId], references: [id])
+  createdAt     DateTime      @default(now())
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// --- Infrastructure Models ---
+
+enum ServerType {
+  DATABASE
+  STORAGE
+  VPS
+  DEDICATED
+}
+
+enum ServerStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+  PROVISIONING
+}
+
+model Server {
+  id          String       @id @default(uuid())
+  name        String
+  type        ServerType
+  endpoint    String       // IP or URL
+  config      Json?        // Credentials, ports, etc. (Encrypted in real app)
+  capacity    Int          // e.g. storage in GB or max slots
+  usage       Int          @default(0)
+  status      ServerStatus @default(ONLINE)
+  providerId  String
+  provider    User         @relation(fields: [providerId], references: [id])
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+// --- Website Builder Models ---
+
+model Page {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String
+  content   Json     // GrapesJS JSON or custom component tree
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, slug])
+}
+
+model Template {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  thumbnail   String?
+  content     Json     // Base structure for the template
+  isPublic    Boolean  @default(false) // If true, available to all resellers
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
