@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import api from '@/utils/api';
+import api, { setAccessToken } from '@/utils/api';
 
 export default function Login() {
     const [email, setEmail] = useState('');
@@ -12,10 +12,17 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError('');
+
         try {
             const response = await api.post('/auth/login', { email, password });
-            // In a real app, handle cookies/session properly
-            localStorage.setItem('token', response.data.token);
+
+            // Store access token in memory (NOT localStorage!)
+            setAccessToken(response.data.accessToken);
+
+            // Store non-sensitive user info for display
+            sessionStorage.setItem('user', JSON.stringify(response.data.user));
+
             router.push('/dashboard');
         } catch (err: any) {
             setError(err.response?.data?.message || 'Login failed');

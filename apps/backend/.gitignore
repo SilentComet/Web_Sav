@@ -1,5 +1,16 @@
-node_modules
-# Keep environment variables out of version control
+node_modules/
+dist/
 .env
-
-/src/generated/prisma
+.env.local
+.env.*.local
+uploads/
+logs/
+*.log
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+coverage/
+.nyc_output/
